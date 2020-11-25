@@ -1,16 +1,16 @@
-#include <stdio.h> 
-#include <netinet/in.h> 
-#include <sys/time.h>  
-#include <unistd.h>   
+#include <stdio.h>
 #include <string.h>
-#include <signal.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include <errno.h>
-#include <sys/socket.h> 
-#include <arpa/inet.h>       
-#include <stdlib.h> 
-#include <sys/types.h> 
+	
+#define BUFSIZE 1024
 
-// For displaying the database
+
 void show_database()
 {
 
@@ -60,110 +60,106 @@ void show_database()
 }
 
 
-int main(int argc, char *argv[])
-{
-    char * IP = argv[1];
-    char * p = argv[2];
-    int port;
-    sscanf(p,"%d",&port);
-    printf("The ip address is : %s \n",IP );
-    printf("The port number is this: %d\n",port);
-    struct sockaddr_in address;
-    int valread,client_socket;
-    struct sockaddr_in serv_addr;
-    client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    char buffer[1024] = {0};
-    //Check if the socket can be created or not
-    if (client_socket == -1)
-    {
-        printf("\n Socket cannot be created error \n");
-        return -1;
-    }
-    printf("Socket Descriptor: %d\n",client_socket); 
-    memset(&serv_addr, '0', sizeof(serv_addr));
-    //initializing the socket
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
-    serv_addr.sin_port = htons(port); 
-    // Sanity Check for IP address
-    if(inet_pton(AF_INET, IP, &serv_addr.sin_addr)<=0) 
-    {
-        printf("\nInvalid address \n");
-        return -1;
-    }
-    if(connect(client_socket, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-    {
-        printf("\nConnection Failed \n");
-        return -1;
-    }
-    else 
-    {
-        printf("Connected to the server..you may now proceed\n");
-    }
-    show_database();  
-    while(1)
-    {
-        int request_type;
-        printf("\n\tEnter '0' for purchase \n\tEnter '1' for closing connection \n\n\tChoose :");
-        scanf("%d",&request_type);
-        if(request_type == 0)
-        {
-            char upccode[10];
-            char quantity[20];
-            char datatosend[25];
-            printf("\tEnter upccode of the item from the above table :");
-            scanf("%s",upccode);
-            printf("\tEnter quantity of the item :");
-            scanf("%s",quantity);
-            sprintf(datatosend,"0,%s,%s",upccode,quantity);
-            int temp = strlen(upccode)+ strlen(quantity)+3;
-            datatosend[temp] = '\0';
-            printf("\n\tRequest we will be sending is %s\n",datatosend);
-            if( send(client_socket , datatosend, temp+1, 0) != temp+1)  
-            {  
-                perror("\terror in send in client");  
-            } 
-            printf("\n\tRequest of 0 request_type sent\n"); 
-            for(int iii=0;iii<sizeof (buffer);iii++)
-            {
-                buffer[iii] = 0;
-            }   
-            valread = read( client_socket , buffer,sizeof(buffer));       
-            if (valread ==0)
-            {
-                printf("\terror in client while reading response from server\n");
-            }
-            printf("\nRESPONSE FROM SERVER : %s\n",buffer );
-            buffer[0]='\0';
-        }
-        else if(request_type == 1)
-        {
-            char datatosend[25];
-            sprintf(datatosend,"1");   
-            datatosend[1]='\0';
-            printf("\n\tRequest we will be sending is %s\n",datatosend);
-            if( send(client_socket , datatosend, 2, 0) != 2 )  
-            {  
-                perror("\terror in send in client");  
-            } 
-            printf("\n\tRequest of 1 request_type sent\n");
-            
-            for(int iii=0;iii<sizeof (buffer);iii++)
-            {
-                buffer[iii] = 0;
-            } 
-            valread = read( client_socket , buffer, sizeof(buffer));            
-            if (valread ==0)
-            {
-                printf("\terror in client while reading response from server\n");
-            }
-            printf("\nRESPONSE FROM SERVER : %s\n",buffer);
-            buffer[0]='\0';
-            printf("\n%s\n\n","***Your connection will be closed now****" );
-            close(client_socket);
-            break;
-        }
 
-    }
-    return 0;
+void send_recv(int i, int sockfd)
+{
+	char send_buf[BUFSIZE];
+	char recv_buf[BUFSIZE];
+	int nbyte_recvd;
+	
+	if (i == 0){
+	
+		
+		int request_type;
+		
+		scanf("%d",&request_type); 
+		if(request_type == 0){
+	        char upccode[10];
+              	char quantity[20];
+            	char datatosend[25];
+		
+		scanf("%s",upccode);
+		
+		scanf("%s",quantity);
+		sprintf(datatosend,"0,%s,%s",upccode,quantity);
+		int temp = strlen(upccode)+ strlen(quantity)+3;
+		datatosend[temp] = '\0';
+		
+		
+		send(sockfd, datatosend, temp, 0); 
+		
+		struct sockaddr_in addr;
+	 socklen_t length =  sizeof( struct   sockaddr_in); 
+	 getpeername( sockfd, (struct sockaddr*)&addr, &length);
+	 
+	  printf("%s", inet_ntoa(addr.sin_addr));
+		nbyte_recvd = recv(sockfd, recv_buf, BUFSIZE, 0);
+		recv_buf[nbyte_recvd] = '\0';
+		printf("\nRESPONSE FROM SERVER : %s\n",recv_buf); 
+		}
+		else{
+			char datatosend[25];
+            		sprintf(datatosend,"1");   
+            		datatosend[1]='\0';
+            		send(sockfd, datatosend, 2, 0);
+			nbyte_recvd = recv(sockfd, recv_buf, BUFSIZE, 0);
+			recv_buf[nbyte_recvd] = '\0';
+			printf("\nRESPONSE FROM SERVER : %s\n", recv_buf ); 
+			printf("\n%s\n\n","***Your connection will be closed now****" );
+             close(sockfd);
+		}
+	}
+}
+		
+		
+void connect_request(int *sockfd, struct sockaddr_in *server_addr, char* IP)
+{
+	if ((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("Socket");
+		exit(1);
+	}
+	server_addr->sin_family = AF_INET;
+	server_addr->sin_port = htons(4950);
+	server_addr->sin_addr.s_addr = inet_addr(IP); 
+	memset(server_addr->sin_zero, '\0', sizeof server_addr->sin_zero);
+	
+	if(connect(*sockfd, (struct sockaddr *)server_addr, sizeof(struct sockaddr)) == -1) {
+		perror("connect");
+		exit(1);
+	}
+}
+	
+int main(int argc, char *argv[])
+{	
+	char * IP = argv[1];
+	int sockfd, fdmax, i;
+	struct sockaddr_in server_addr;
+	fd_set master;
+	fd_set read_fds;
+	
+	connect_request(&sockfd, &server_addr ,  IP);
+	FD_ZERO(&master);
+        FD_ZERO(&read_fds);
+        FD_SET(0, &master);
+        FD_SET(sockfd, &master);
+	fdmax = sockfd;
+	show_database();  
+	puts("\n\tEnter '0' for purchase \n\tEnter '1' for closing connection \n\tChoose :\n");
+	
+	puts("\tEnter upccode of the item from the above table :");
+	puts("\tEnter quantity of the item :");
+	while(1){
+		read_fds = master;
+		if(select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1){
+			perror("select");
+			exit(4);
+		}
+		
+		for(i=0; i <= fdmax; i++ )
+			if(FD_ISSET(i, &read_fds))
+				send_recv(i, sockfd);
+	}
+	printf("client-quited\n");
+	close(sockfd);
+	return 0;
 }
